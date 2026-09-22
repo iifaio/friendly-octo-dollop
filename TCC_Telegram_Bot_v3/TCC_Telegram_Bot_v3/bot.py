@@ -13,13 +13,13 @@ from telegram.ext import (
 )
 
 # -------------------------------------------------------------
-# 1. خادم وهمي لإبقاء الخدمة تعمل على Render بدون توقف
+# 1. Health check server for Render (Keeps the service alive)
 # -------------------------------------------------------------
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
         self.end_headers()
-        self.wfile.write(b"Bot is alive and running!")
+        self.wfile.write(b"Bot is alive!")
 
 def run_dummy_server():
     port = int(os.environ.get("PORT", 8080))
@@ -29,14 +29,14 @@ def run_dummy_server():
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
 # -------------------------------------------------------------
-# 2. إعداد التسجيل (Logging)
+# 2. Logging Setup
 # -------------------------------------------------------------
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# مراحل المحادثة (States)
+# Conversation States
 (
     INCIDENT_NO,
     PRIORITY,
@@ -53,9 +53,7 @@ logger = logging.getLogger(__name__)
     REMARKS,
 ) = range(13)
 
-# -------------------------------------------------------------
-# 3. دالة تنسيق الوقت (تحويل am/pm إلى AM/PM)
-# -------------------------------------------------------------
+# Helper function to format time inputs to uppercase AM/PM
 def format_time_input(text: str) -> str:
     val = text.strip()
     if val.lower().endswith("am"):
@@ -65,13 +63,12 @@ def format_time_input(text: str) -> str:
     return val
 
 # -------------------------------------------------------------
-# 4. معالجات الخطوات (Bot Handlers)
+# 3. Conversation Handlers
 # -------------------------------------------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
     await update.message.reply_text(
-        "مرحباً بك في بوت تسجيل البلاغات (TCC Incident Logging Bot).\n\n"
-        "الرجاء إدخال رقم البلاغ (Incident No):",
+        "Welcome to TCC Incident Logging Bot.\n\nPlease enter Incident No:",
         reply_markup=ReplyKeyboardRemove(),
     )
     return INCIDENT_NO
@@ -80,7 +77,7 @@ async def get_incident_no(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data["incident_no"] = update.message.text
     reply_keyboard = [["P1", "P2", "P3", "P4"]]
     await update.message.reply_text(
-        "اختر مستوى الأولوية (Priority):",
+        "Select Priority:",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
     )
     return PRIORITY
@@ -92,7 +89,7 @@ async def get_priority(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         ["Departure Altanfithi", "Arrival Altanfeethi"],
     ]
     await update.message.reply_text(
-        "اختر الموقع (Location):",
+        "Select Location:",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
     )
     return LOCATION
@@ -101,7 +98,6 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     location = update.message.text
     context.user_data["location"] = location
 
-    # تحديد البوابات والخدمات بناءً على الموقع
     if location == "Departure":
         gates = [f"Gate {i}" for i in range(1, 39)]
     elif location == "Arrival":
@@ -115,7 +111,7 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     keyboard = [options[i:i+3] for i in range(0, len(options), 3)]
 
     await update.message.reply_text(
-        f"الموقع المحدد: {location}\nاختر البوابة أو الخدمة (Gate / Services / System):",
+        f"Selected Location: {location}\nSelect Gate / Services / System:",
         reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True),
     )
     return GATE
@@ -123,7 +119,7 @@ async def get_location(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 async def get_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["gate"] = update.message.text
     await update.message.reply_text(
-        "اكتب وصف المشكلة المبلغ عنها (Reported Issue):",
+        "Enter Reported Issue:",
         reply_markup=ReplyKeyboardRemove(),
     )
     return REPORTED_ISSUE
@@ -131,7 +127,7 @@ async def get_gate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def get_reported_issue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["reported_issue"] = update.message.text
     await update.message.reply_text(
-        "أدخل وقت الحادثة (مثال: 10:30 AM):"
+        "Enter Time (e.g. 10:30 AM):"
     )
     return TIME_INCIDENT
 
@@ -141,7 +137,7 @@ async def get_time_incident(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     
     reply_keyboard = [["Hardware", "Software", "Network", "Power", "Other"]]
     await update.message.reply_text(
-        "اختر السبب الجذر (R/C):",
+        "Select R/C:",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
     )
     return RC
@@ -150,16 +146,16 @@ async def get_rc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["rc"] = update.message.text
     reply_keyboard = [["Open", "Closed", "Pending"]]
     await update.message.reply_text(
-        "اختر حالة البلاغ (Status):",
+        "Select Status:",
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True),
     )
     return STATUS
 
 async def get_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["status"] = update.message.text
-    issue = context.user_data.get("reported_issue", "غير محدد")
+    issue = context.user_data.get("reported_issue", "N/A")
     await update.message.reply_text(
-        f"📌 **المشكلة المسجلة:** {issue}\n\nاكتب تقرير TCC (TCC Report):",
+        f"📌 **Reported Issue Reminder:** {issue}\n\nEnter TCC Report:",
         reply_markup=ReplyKeyboardRemove(),
     )
     return TCC_REPORT
@@ -167,7 +163,7 @@ async def get_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def get_tcc_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["tcc_report"] = update.message.text
     await update.message.reply_text(
-        "أدخل وقت إغلاق البلاغ (Time Closed) أو اكتب N/A:"
+        "Enter Time Closed (or N/A):"
     )
     return TIME_CLOSED
 
@@ -179,33 +175,32 @@ async def get_time_closed(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         formatted_time = "N/A"
     context.user_data["time_closed"] = formatted_time
 
-    issue = context.user_data.get("reported_issue", "غير محدد")
+    issue = context.user_data.get("reported_issue", "N/A")
     await update.message.reply_text(
-        f"📌 **المشكلة المسجلة:** {issue}\n\nاكتب الحل المقدم (Solution):"
+        f"📌 **Reported Issue Reminder:** {issue}\n\nEnter Solution:"
     )
     return SOLUTION
 
 async def get_solution(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["solution"] = update.message.text
     await update.message.reply_text(
-        "أدخل رقم التذكرة المرتبطة (Associated Ticket) إن وجد أو اكتب N/A:"
+        "Enter Associated Ticket (or N/A):"
     )
     return ASSOCIATED_TICKET
 
 async def get_associated_ticket(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["associated_ticket"] = update.message.text
     await update.message.reply_text(
-        "اكتب الملاحظات (Remarks) إن وجدت أو اكتب None:"
+        "Enter Remarks (or None):"
     )
     return REMARKS
 
 async def get_remarks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["remarks"] = update.message.text
     
-    # تجميع التقرير النهائي
     data = context.user_data
     summary = (
-        "📋 **ملخص البلاغ المسجل:**\n\n"
+        "📋 **Incident Summary:**\n\n"
         f"• **Incident No:** {data.get('incident_no')}\n"
         f"• **Priority:** {data.get('priority')}\n"
         f"• **Location:** {data.get('location')}\n"
@@ -222,22 +217,22 @@ async def get_remarks(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     )
     
     await update.message.reply_text(summary, parse_mode="Markdown")
-    await update.message.reply_text("تم تسجيل البلاغ بنجاح! للبدء من جديد أرسل /start")
+    await update.message.reply_text("Incident logged successfully! Type /start to begin again.")
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text(
-        "تم إلغاء عملية التسجيل.", reply_markup=ReplyKeyboardRemove()
+        "Operation cancelled.", reply_markup=ReplyKeyboardRemove()
     )
     return ConversationHandler.END
 
 # -------------------------------------------------------------
-# 5. تشغيل البوت (Main Function)
+# 4. Main Execution
 # -------------------------------------------------------------
 def main():
     token = os.environ.get("TELEGRAM_BOT_TOKEN")
     if not token:
-        logger.error("لم يتم العثور على TELEGRAM_BOT_TOKEN في متغيرات البيئة!")
+        logger.error("TELEGRAM_BOT_TOKEN not found in environment variables!")
         return
 
     application = Application.builder().token(token).build()
@@ -264,7 +259,7 @@ def main():
 
     application.add_handler(conv_handler)
     
-    logger.info("جاري تشغيل البوت...")
+    logger.info("Starting bot...")
     application.run_polling()
 
 if __name__ == "__main__":
