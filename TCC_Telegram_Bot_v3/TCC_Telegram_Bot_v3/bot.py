@@ -369,9 +369,9 @@ async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     data = context.user_data
-    today_date = datetime.now().strftime("%Y-%m-%d")
+    # ضبط تنسيق التاريخ إلى DD/MM/YYYY
+    today_date = datetime.now().strftime("%d/%m/%Y")
 
-    # حفظ البلاغ في القائمة اليومية مصفوفاً حسب ترتيب أعمدة Excel المطلوب
     incident_record = {
         "Area": data.get('location', ''),
         "Gate": data.get('services', ''),
@@ -403,7 +403,7 @@ async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         f"*Remarks*: {data.get('remarks', '')}"
     )
 
-    msg_text = output + "\n\n✅ *Logged! Type /report at the end of the day to export to Excel.*"
+    msg_text = output + "\n\n✅ *Logged! Type /report at the end of the day to copy text for Excel.*"
 
     if update.callback_query:
         await update.callback_query.message.reply_text(msg_text, parse_mode='Markdown')
@@ -413,7 +413,7 @@ async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     return ConversationHandler.END
 
 # -------------------------------------------------------------
-# 4. Excel Export Function (/report)
+# 4. CSV Direct Copy Generator (/report)
 # -------------------------------------------------------------
 async def export_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not daily_incidents:
@@ -434,17 +434,20 @@ async def export_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Comments"
     ]
 
-    lines = ["\t".join(headers)]
+    lines = []
     for item in daily_incidents:
-        row = [str(item.get(h, "")) for h in headers]
-        lines.append("\t".join(row))
+        row_fields = []
+        for h in headers:
+            val = str(item.get(h, "")).replace('"', '""')
+            row_fields.append(f'"{val}"')
+        lines.append(",".join(row_fields))
 
-    tsv_output = "\n".join(lines)
+    csv_output = "\n".join(lines)
 
     response_text = (
         "📊 **Daily Excel Report**\n\n"
-        "انسخ النص الموجود بالأسفل بالضغط عليه ولصقه مباشرة في صفحة **Excel**:\n\n"
-        f"```\n{tsv_output}\n```"
+        "انسخ الأسطر بالأسفل كما هي، ثم الصقها مباشرة في شيت Excel في الجوال:\n\n"
+        f"```\n{csv_output}\n```"
     )
 
     await update.message.reply_text(response_text, parse_mode='Markdown')
