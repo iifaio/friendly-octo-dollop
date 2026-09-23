@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import threading
+from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -14,6 +15,7 @@ from telegram.ext import (
     ConversationHandler,
     filters,
 )
+
 # -------------------------------------------------------------
 # 1. Health check server for Render (Keeps the service alive)
 # -------------------------------------------------------------
@@ -33,16 +35,16 @@ threading.Thread(target=run_dummy_server, daemon=True).start()
 # -------------------------------------------------------------
 # 2. Logging Setup
 # -------------------------------------------------------------
+load_dotenv()
+
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
-load_dotenv()
-
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# -------------------------------------------------------------
+# 3. Daily Incidents Database (In-Memory)
+# -------------------------------------------------------------
+daily_incidents = []
 
 # حالات المحادثة
 (
@@ -85,7 +87,6 @@ ISSUES_AND_SOLUTIONS = {
 def format_time_uppercase(text: str) -> str:
     if not text:
         return ""
-    # تحويل am/pm إلى أحرف كبيرة تلقائياً
     text = re.sub(r'am', 'AM', text, flags=re.IGNORECASE)
     text = re.sub(r'pm', 'PM', text, flags=re.IGNORECASE)
     return text
@@ -104,6 +105,7 @@ def build_gate_keyboard(max_gates):
     return keyboard
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    context.user_data.clear()
     await update.message.reply_text(
         "Welcome! Let's log a new incident report.\n\n"
         "Please enter the *Incident No* (or send /cancel to stop):",
@@ -199,7 +201,6 @@ async def desc_reported_chosen(update: Update, context: ContextTypes.DEFAULT_TYP
     return RECEIVED_TIME
 
 async def received_time_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    # تحويل am/pm إلى أحرف كبيرة
     formatted_time = format_time_uppercase(update.message.text)
     context.user_data['received_time'] = formatted_time
     
@@ -368,6 +369,23 @@ async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     data = context.user_data
+    today_date = datetime.now().strftime("%Y-%m-%d")
+
+    # حفظ البلاغ في القائمة اليومية مصفوفاً حسب ترتيب أعمدة Excel المطلوب
+    incident_record = {
+        "Area": data.get('location', ''),
+        "Gate": data.get('services', ''),
+        "Ticket number": data.get('incident_no', ''),
+        "Open Time": data.get('received_time', ''),
+        "Open Date": today_date,
+        "Issue": data.get('desc_tcc', '') or data.get('desc_reported', ''),
+        "Resolution": data.get('solution', ''),
+        "Close time": data.get('time_closed', ''),
+        "Close Date": today_date if data.get('time_closed') else '',
+        "Status": data.get('status', ''),
+        "Comments": data.get('remarks', '')
+    }
+    daily_incidents.append(incident_record)
 
     output = (
         f"*Incident No*: {data.get('incident_no', '')}\n"
@@ -385,12 +403,51 @@ async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         f"*Remarks*: {data.get('remarks', '')}"
     )
 
+    msg_text = output + "\n\n✅ *Logged! Type /report at the end of the day to export to Excel.*"
+
     if update.callback_query:
-        await update.callback_query.message.reply_text(output, parse_mode='Markdown')
+        await update.callback_query.message.reply_text(msg_text, parse_mode='Markdown')
     else:
-        await update.message.reply_text(output, parse_mode='Markdown')
+        await update.message.reply_text(msg_text, parse_mode='Markdown')
         
     return ConversationHandler.END
+
+# -------------------------------------------------------------
+# 4. Excel Export Function (/report)
+# -------------------------------------------------------------
+async def export_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not daily_incidents:
+        await update.message.reply_text("⚠️ No incidents recorded today yet.")
+        return
+
+    headers = [
+        "Area",
+        "Gate",
+        "Ticket number",
+        "Open Time",
+        "Open Date",
+        "Issue",
+        "Resolution",
+        "Close time",
+        "Close Date",
+        "Status",
+        "Comments"
+    ]
+
+    lines = ["\t".join(headers)]
+    for item in daily_incidents:
+        row = [str(item.get(h, "")) for h in headers]
+        lines.append("\t".join(row))
+
+    tsv_output = "\n".join(lines)
+
+    response_text = (
+        "📊 **Daily Excel Report**\n\n"
+        "انسخ النص الموجود بالأسفل بالضغط عليه ولصقه مباشرة في صفحة **Excel**:\n\n"
+        f"```\n{tsv_output}\n```"
+    )
+
+    await update.message.reply_text(response_text, parse_mode='Markdown')
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text('Operation cancelled.')
@@ -450,6 +507,8 @@ def main():
     )
 
     application.add_handler(conv_handler)
+    application.add_handler(CommandHandler('report', export_report))
+
     print("Bot is running...")
     application.run_polling()
 
