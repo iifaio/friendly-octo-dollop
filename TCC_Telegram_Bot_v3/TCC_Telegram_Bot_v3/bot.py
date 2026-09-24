@@ -42,7 +42,7 @@ logging.basicConfig(
 )
 
 # -------------------------------------------------------------
-# 3. Daily Incidents Database
+# 3. Daily Incidents Database & Global Variables
 # -------------------------------------------------------------
 daily_incidents = []
 
@@ -128,10 +128,10 @@ async def priority_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         query = update.callback_query
         await query.answer()
         context.user_data['priority'] = query.data
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         context.user_data['priority'] = update.message.text.strip().upper()
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     keyboard = [
         [InlineKeyboardButton("Departure", callback_data="Departure")],
@@ -139,7 +139,7 @@ async def priority_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         [InlineKeyboardButton("Departure Altanfithi", callback_data="Departure Altanfithi")],
         [InlineKeyboardButton("Arrival Altanfeethi", callback_data="Arrival Altanfeethi")]
     ]
-    await bot_send(
+    await msg_target.reply_text(
         "Select Location:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -150,17 +150,16 @@ async def location_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         query = update.callback_query
         await query.answer()
         selected_location = query.data
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         selected_location = update.message.text
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     context.user_data['location'] = selected_location
-
     max_gates = LOCATION_GATES.get(selected_location, 0)
     keyboard = build_gate_keyboard(max_gates)
 
-    await bot_send(
+    await msg_target.reply_text(
         f"Select Services / System (Gate Number for {selected_location}):",
         reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None
     )
@@ -171,15 +170,15 @@ async def services_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         query = update.callback_query
         await query.answer()
         context.user_data['services'] = query.data
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         context.user_data['services'] = update.message.text
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     keyboard = [[InlineKeyboardButton(issue, callback_data=issue)] for issue in ISSUES_AND_SOLUTIONS.keys()]
     keyboard.append([InlineKeyboardButton("Out of Service", callback_data="Out of Service")])
 
-    await bot_send(
+    await msg_target.reply_text(
         "Select or type Incident Description Reported:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -190,14 +189,12 @@ async def desc_reported_chosen(update: Update, context: ContextTypes.DEFAULT_TYP
         query = update.callback_query
         await query.answer()
         context.user_data['desc_reported'] = query.data
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         context.user_data['desc_reported'] = update.message.text
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
-    await bot_send(
-        "Enter Incident Received Time (e.g., 8:35PM):"
-    )
+    await msg_target.reply_text("Enter Incident Received Time (e.g., 8:35PM):")
     return RECEIVED_TIME
 
 async def received_time_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -219,16 +216,16 @@ async def rc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         query = update.callback_query
         await query.answer()
         context.user_data['rc'] = query.data
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         context.user_data['rc'] = update.message.text
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     keyboard = [
         [InlineKeyboardButton("Solved", callback_data="Solved"), InlineKeyboardButton("Closed", callback_data="Closed")],
         [InlineKeyboardButton("Pending", callback_data="Pending")]
     ]
-    await bot_send(
+    await msg_target.reply_text(
         "Select Status:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -239,17 +236,17 @@ async def status_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         query = update.callback_query
         await query.answer()
         context.user_data['status'] = query.data
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         context.user_data['status'] = update.message.text
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     reported_issue = context.user_data.get('desc_reported', 'N/A')
 
     keyboard = [[InlineKeyboardButton(issue, callback_data=issue)] for issue in ISSUES_AND_SOLUTIONS.keys()]
     keyboard.append([InlineKeyboardButton("Out of Service", callback_data="Out of Service")])
 
-    await bot_send(
+    await msg_target.reply_text(
         f"Reported Issue previously selected: {reported_issue}\n\nSelect or type Incident Description TCC report:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -270,13 +267,13 @@ async def desc_tcc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             return DESC_TCC
         
         context.user_data['desc_tcc'] = selected_desc
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         context.user_data['desc_tcc'] = update.message.text
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await bot_send(
+    await msg_target.reply_text(
         "Enter Time closed (e.g., 8:49PM) or press Skip:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -288,11 +285,11 @@ async def time_closed_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await query.answer()
         raw_val = "" if query.data == "SKIP" else query.data
         context.user_data['time_closed'] = format_time_uppercase(raw_val)
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         raw_val = update.message.text if update.message.text != '/skip' else ""
         context.user_data['time_closed'] = format_time_uppercase(raw_val)
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     desc_tcc = context.user_data.get('desc_tcc', '')
     suggested_sol = None
@@ -312,7 +309,7 @@ async def time_closed_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     keyboard.append([InlineKeyboardButton("Skip >>", callback_data="SKIP")])
 
-    await bot_send(
+    await msg_target.reply_text(
         f"TCC Report Issue: {desc_tcc}\n\nSelect or type Solution:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -323,13 +320,13 @@ async def solution_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         query = update.callback_query
         await query.answer()
         context.user_data['solution'] = "" if query.data == "SKIP" else query.data
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         context.user_data['solution'] = update.message.text if update.message.text != '/skip' else ""
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await bot_send(
+    await msg_target.reply_text(
         "Enter Associated ticket or press Skip:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -340,13 +337,13 @@ async def associated_ticket_chosen(update: Update, context: ContextTypes.DEFAULT
         query = update.callback_query
         await query.answer()
         context.user_data['associated_ticket'] = "" if query.data == "SKIP" else query.data
-        bot_send = query.message.reply_text
+        msg_target = query.message
     else:
         context.user_data['associated_ticket'] = update.message.text if update.message.text != '/skip' else ""
-        bot_send = update.message.reply_text
+        msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await bot_send(
+    await msg_target.reply_text(
         "Enter Remarks or press Skip:",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -432,7 +429,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 def main():
-    TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "ضع_التوكن_الخاص_بك_هنا")
+    TOKEN ="8834717500:AAFQGsAwarWK5aQrur7ZzhktO_98UzfhzyU"
 
     application = ApplicationBuilder().token(TOKEN).build()
 
