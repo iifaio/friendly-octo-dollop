@@ -402,9 +402,7 @@ async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         f"*Associated ticket*: {data.get('associated_ticket', '')}\n"
         f"*Remarks*: {data.get('remarks', '')}"
     )
-
-    msg_text = output + "\n\n✅ *Logged! Type /report at the end of the day to copy text for Excel.*"
-
+    
     if update.callback_query:
         await update.callback_query.message.reply_text(msg_text, parse_mode='Markdown')
     else:
