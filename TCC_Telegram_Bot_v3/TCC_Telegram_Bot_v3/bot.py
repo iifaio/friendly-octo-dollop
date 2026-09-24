@@ -41,6 +41,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# قائمة تخزين البلاغات
 daily_incidents = []
 
 (
@@ -73,18 +74,24 @@ def format_time_uppercase(text: str) -> str:
     text = re.sub(r'pm', 'PM', text, flags=re.IGNORECASE)
     return text
 
-def build_gate_keyboard(max_gates):
+def build_gate_keyboard(max_gates, selected_gates):
+    """إنشاء لوحة مفاتيح للبوابات تتيح الاختيار المتعدد"""
     keyboard, row = [], []
     for i in range(1, max_gates + 1):
-        row.append(InlineKeyboardButton(str(i), callback_data=str(i)))
+        gate_str = str(i)
+        # إضافة علامة صح للبوابة المختارة
+        display_text = f"✔️ {gate_str}" if gate_str in selected_gates else gate_str
+        row.append(InlineKeyboardButton(display_text, callback_data=f"GATE_{gate_str}"))
         if len(row) == 5:
             keyboard.append(row)
             row = []
     if row: keyboard.append(row)
+    
+    # إضافة زر التأكيد
+    keyboard.append([InlineKeyboardButton("Done ✅", callback_data="GATES_DONE")])
     return keyboard
 
 async def delete_previous_message(update: Update):
-    """دالة مساعدة لحذف الرسالة كاملة (السؤال + الأزرار) بعد الضغط عليها"""
     if update.callback_query:
         try:
             await update.callback_query.message.delete()
@@ -112,7 +119,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return INCIDENT_NO
 
 async def incident_no_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    context.user_data['incident_no'] = update.message.text
+    context.user_data['incident_no'] = update.message.text.strip()
     keyboard = [[
         InlineKeyboardButton("H (High)", callback_data="H"),
         InlineKeyboardButton("M (Medium)", callback_data="M"),
@@ -144,22 +151,52 @@ async def location_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         selected_location = update.callback_query.data
         await delete_previous_message(update)
     else:
-        selected_location = update.message.text
+        selected_location = update.message.text.strip()
 
     context.user_data['location'] = selected_location
-    max_gates = LOCATION_GATES.get(selected_location, 0)
-    keyboard = build_gate_keyboard(max_gates)
+    context.user_data['selected_gates'] = [] # تهيئة مصفوفة الاختيارات المتعددة
 
-    await update.effective_chat.send_message(f"Select Services / System (Gate Number for {selected_location}):", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
+    max_gates = LOCATION_GATES.get(selected_location, 0)
+    keyboard = build_gate_keyboard(max_gates, context.user_data['selected_gates'])
+
+    await update.effective_chat.send_message(
+        f"Select Services / System (Gate Numbers for {selected_location}):\n(You can select multiple gates, then press Done ✅)",
+        reply_markup=InlineKeyboardMarkup(keyboard) if max_gates > 0 else None
+    )
     return SERVICES_SYSTEM
 
 async def services_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
-        context.user_data['services'] = update.callback_query.data
-        await delete_previous_message(update)
+        cb_data = update.callback_query.data
+        
+        # عند الضغط على أحد أزرار البوابات
+        if cb_data.startswith("GATE_"):
+            gate_num = cb_data.split("_")[1]
+            selected = context.user_data.get('selected_gates', [])
+            if gate_num in selected:
+                selected.remove(gate_num)
+            else:
+                selected.append(gate_num)
+            context.user_data['selected_gates'] = selected
+
+            # تحديث لوحة المفاتيح لتوضيح المكتمل/الملغى بدون حذف الرسالة
+            max_gates = LOCATION_GATES.get(context.user_data.get('location'), 0)
+            new_keyboard = build_gate_keyboard(max_gates, selected)
+            await update.callback_query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(new_keyboard))
+            return SERVICES_SYSTEM
+
+        # عند الانتهاء وتأكيد الاختيار
+        elif cb_data == "GATES_DONE":
+            selected = context.user_data.get('selected_gates', [])
+            if not selected:
+                await update.callback_query.answer("⚠️ Please select at least one gate!", show_alert=True)
+                return SERVICES_SYSTEM
+            
+            context.user_data['services'] = ", ".join(sorted(selected, key=lambda x: int(x) if x.isdigit() else x))
+            await delete_previous_message(update)
     else:
-        context.user_data['services'] = update.message.text
+        context.user_data['services'] = update.message.text.strip()
 
     keyboard = [[InlineKeyboardButton(issue, callback_data=issue)] for issue in ISSUES_AND_SOLUTIONS.keys()]
     keyboard.append([InlineKeyboardButton("Out of Service", callback_data="Out of Service")])
@@ -173,16 +210,16 @@ async def desc_reported_chosen(update: Update, context: ContextTypes.DEFAULT_TYP
         context.user_data['desc_reported'] = update.callback_query.data
         await delete_previous_message(update)
     else:
-        context.user_data['desc_reported'] = update.message.text
+        context.user_data['desc_reported'] = update.message.text.strip()
 
     await update.effective_chat.send_message("Enter Incident Received Time (e.g., 8:35PM):")
     return RECEIVED_TIME
 
 async def received_time_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    context.user_data['received_time'] = format_time_uppercase(update.message.text)
+    context.user_data['received_time'] = format_time_uppercase(update.message.text.strip())
     keyboard = [
         [InlineKeyboardButton("SW", callback_data="SW"), InlineKeyboardButton("HW", callback_data="HW")],
-        [InlineKeyboardButton("N/A", callback_data="N/A")]
+        [InlineKeyboardButton("Other", callback_data="Other"), InlineKeyboardButton("N/A", callback_data="N/A")]
     ]
     await update.message.reply_text("Select or type R/C:", reply_markup=InlineKeyboardMarkup(keyboard))
     return RC
@@ -193,7 +230,7 @@ async def rc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         context.user_data['rc'] = update.callback_query.data
         await delete_previous_message(update)
     else:
-        context.user_data['rc'] = update.message.text
+        context.user_data['rc'] = update.message.text.strip()
 
     keyboard = [
         [InlineKeyboardButton("Solved", callback_data="Solved"), InlineKeyboardButton("Closed", callback_data="Closed")],
@@ -208,7 +245,7 @@ async def status_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         context.user_data['status'] = update.callback_query.data
         await delete_previous_message(update)
     else:
-        context.user_data['status'] = update.message.text
+        context.user_data['status'] = update.message.text.strip()
 
     reported_issue = context.user_data.get('desc_reported', 'N/A')
     keyboard = [[InlineKeyboardButton(issue, callback_data=issue)] for issue in ISSUES_AND_SOLUTIONS.keys()]
@@ -228,7 +265,7 @@ async def desc_tcc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             return DESC_TCC
         context.user_data['desc_tcc'] = selected_desc
     else:
-        context.user_data['desc_tcc'] = update.message.text
+        context.user_data['desc_tcc'] = update.message.text.strip()
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
     await update.effective_chat.send_message("Enter Time closed (e.g., 8:49PM) or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -240,7 +277,7 @@ async def time_closed_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
         raw_val = "" if update.callback_query.data == "SKIP" else update.callback_query.data
         await delete_previous_message(update)
     else:
-        raw_val = update.message.text if update.message.text != '/skip' else ""
+        raw_val = update.message.text.strip() if update.message.text != '/skip' else ""
 
     context.user_data['time_closed'] = format_time_uppercase(raw_val)
     desc_tcc = context.user_data.get('desc_tcc', '')
@@ -270,7 +307,7 @@ async def solution_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         context.user_data['solution'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
         await delete_previous_message(update)
     else:
-        context.user_data['solution'] = update.message.text if update.message.text != '/skip' else ""
+        context.user_data['solution'] = update.message.text.strip() if update.message.text != '/skip' else ""
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
     await update.effective_chat.send_message("Enter Associated ticket or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -282,7 +319,7 @@ async def associated_ticket_chosen(update: Update, context: ContextTypes.DEFAULT
         context.user_data['associated_ticket'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
         await delete_previous_message(update)
     else:
-        context.user_data['associated_ticket'] = update.message.text if update.message.text != '/skip' else ""
+        context.user_data['associated_ticket'] = update.message.text.strip() if update.message.text != '/skip' else ""
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
     await update.effective_chat.send_message("Enter Remarks or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -294,42 +331,59 @@ async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.user_data['remarks'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
         await delete_previous_message(update)
     else:
-        context.user_data['remarks'] = update.message.text if update.message.text != '/skip' else ""
+        context.user_data['remarks'] = update.message.text.strip() if update.message.text != '/skip' else ""
 
     data = context.user_data
     today_date = datetime.now().strftime("%d/%m/%Y")
 
-    daily_incidents.append({
-        "Area": data.get('location', ''),
-        "Gate": data.get('services', ''),
-        "Ticket number": data.get('incident_no', ''),
-        "Open Time": data.get('received_time', ''),
-        "Open Date": today_date,
-        "Issue": data.get('desc_tcc', '') or data.get('desc_reported', ''),
-        "Resolution": data.get('solution', ''),
-        "Close time": data.get('time_closed', ''),
-        "Close Date": today_date if data.get('time_closed') else '',
-        "Status": data.get('status', ''),
-        "Comments": data.get('remarks', '')
-    })
+    # حفظ البلاغ الحالي
+    new_entry = {
+        "incident_no": data.get('incident_no', ''),
+        "priority": data.get('priority', ''),
+        "services": data.get('services', ''),
+        "location": data.get('location', ''),
+        "desc_reported": data.get('desc_reported', ''),
+        "received_time": data.get('received_time', ''),
+        "rc": data.get('rc', ''),
+        "status": data.get('status', ''),
+        "desc_tcc": data.get('desc_tcc', ''),
+        "time_closed": data.get('time_closed', ''),
+        "solution": data.get('solution', ''),
+        "associated_ticket": data.get('associated_ticket', ''),
+        "remarks": data.get('remarks', ''),
+        "date": today_date
+    }
+    
+    daily_incidents.append(new_entry)
 
-    output = (
-        f"*Incident No:* {data.get('incident_no', '')}\n"
-        f"*Incident priority:* {data.get('priority', '')}\n"
-        f"*Services / System:* {data.get('services', '')}\n"
-        f"*Location:* {data.get('location', '')}\n"
-        f"*Incident Description Reported:* {data.get('desc_reported', '')}\n"
-        f"*Incident Received Time:* {data.get('received_time', '')}\n\n"
-        f"*R/C:* {data.get('rc', '')}\n"
-        f"*Status:* {data.get('status', '')}\n"
-        f"*Incident Description TCC report:* {data.get('desc_tcc', '')}\n"
-        f"*Time closed:* {data.get('time_closed', '')}\n"
-        f"*Solution:* {data.get('solution', '')}\n"
-        f"*Associated ticket:* {data.get('associated_ticket', '')}\n"
-        f"*Remarks:* {data.get('remarks', '')}"
-    )
+    # جلب جميع البلاغات المسجلة بنفس رقم التكت لجمعها معاً
+    target_inc_no = data.get('incident_no', '')
+    matching_incidents = [inc for inc in daily_incidents if inc.get('incident_no') == target_inc_no]
 
-    await update.effective_chat.send_message(output)
+    # بناء نص التقرير للجميع
+    reports = []
+    for inc in matching_incidents:
+        single_report = (
+            f"*Incident No:* {inc.get('incident_no', '')}\n"
+            f"*Incident priority:* {inc.get('priority', '')}\n"
+            f"*Services / System:* {inc.get('services', '')}\n"
+            f"*Location:* {inc.get('location', '')}\n"
+            f"*Incident Description Reported:* {inc.get('desc_reported', '')}\n"
+            f"*Incident Received Time:* {inc.get('received_time', '')}\n\n"
+            f"*R/C:* {inc.get('rc', '')}\n"
+            f"*Status:* {inc.get('status', '')}\n"
+            f"*Incident Description TCC report:* {inc.get('desc_tcc', '')}\n"
+            f"*Time closed:* {inc.get('time_closed', '')}\n"
+            f"*Solution:* {inc.get('solution', '')}\n"
+            f"*Associated ticket:* {inc.get('associated_ticket', '')}\n"
+            f"*Remarks:* {inc.get('remarks', '')}"
+        )
+        reports.append(single_report)
+
+    # دمج التظليلات بفاصل الخطين (----)
+    final_output = "\n\n—-\n\n".join(reports)
+
+    await update.effective_chat.send_message(final_output)
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
