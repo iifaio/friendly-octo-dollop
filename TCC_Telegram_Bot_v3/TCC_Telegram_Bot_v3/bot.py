@@ -83,11 +83,11 @@ def build_gate_keyboard(max_gates):
     if row: keyboard.append(row)
     return keyboard
 
-async def clear_keyboard(update: Update):
-    """إخفاء الأزرار من الرسالة القديمة فور تحديد الخيار"""
+async def delete_previous_message(update: Update):
+    """دالة مساعدة لحذف الرسالة كاملة (السؤال + الأزرار) بعد الضغط عليها"""
     if update.callback_query:
         try:
-            await update.callback_query.edit_message_reply_markup(reply_markup=None)
+            await update.callback_query.message.delete()
         except Exception:
             pass
 
@@ -125,7 +125,7 @@ async def priority_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['priority'] = update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         context.user_data['priority'] = update.message.text.strip().upper()
 
@@ -142,7 +142,7 @@ async def location_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if update.callback_query:
         await update.callback_query.answer()
         selected_location = update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         selected_location = update.message.text
 
@@ -157,7 +157,7 @@ async def services_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['services'] = update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         context.user_data['services'] = update.message.text
 
@@ -171,7 +171,7 @@ async def desc_reported_chosen(update: Update, context: ContextTypes.DEFAULT_TYP
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['desc_reported'] = update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         context.user_data['desc_reported'] = update.message.text
 
@@ -191,7 +191,7 @@ async def rc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['rc'] = update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         context.user_data['rc'] = update.message.text
 
@@ -206,7 +206,7 @@ async def status_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['status'] = update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         context.user_data['status'] = update.message.text
 
@@ -221,7 +221,7 @@ async def desc_tcc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if update.callback_query:
         await update.callback_query.answer()
         selected_desc = update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
         if selected_desc == "Out of Service":
             keyboard = [[InlineKeyboardButton(f"Out of Service - {issue}", callback_data=f"Out of Service - {issue}")] for issue in ISSUES_AND_SOLUTIONS.keys()]
             await update.effective_chat.send_message("Out of Service selected. Select specific issue:", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -238,7 +238,7 @@ async def time_closed_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
     if update.callback_query:
         await update.callback_query.answer()
         raw_val = "" if update.callback_query.data == "SKIP" else update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         raw_val = update.message.text if update.message.text != '/skip' else ""
 
@@ -268,7 +268,7 @@ async def solution_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['solution'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         context.user_data['solution'] = update.message.text if update.message.text != '/skip' else ""
 
@@ -280,7 +280,7 @@ async def associated_ticket_chosen(update: Update, context: ContextTypes.DEFAULT
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['associated_ticket'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         context.user_data['associated_ticket'] = update.message.text if update.message.text != '/skip' else ""
 
@@ -292,7 +292,7 @@ async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['remarks'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
-        await clear_keyboard(update)
+        await delete_previous_message(update)
     else:
         context.user_data['remarks'] = update.message.text if update.message.text != '/skip' else ""
 
