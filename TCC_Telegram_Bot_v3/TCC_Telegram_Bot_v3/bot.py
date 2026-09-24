@@ -402,11 +402,11 @@ async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         f"*Associated ticket*: {data.get('associated_ticket', '')}\n"
         f"*Remarks*: {data.get('remarks', '')}"
     )
-    
+
     if update.callback_query:
-        await update.callback_query.message.reply_text(msg_text, parse_mode='Markdown')
+        await update.callback_query.message.reply_text(output, parse_mode='Markdown')
     else:
-        await update.message.reply_text(msg_text, parse_mode='Markdown')
+        await update.message.reply_text(output, parse_mode='Markdown')
         
     return ConversationHandler.END
 
