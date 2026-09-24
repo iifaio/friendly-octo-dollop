@@ -83,13 +83,21 @@ def build_gate_keyboard(max_gates):
     if row: keyboard.append(row)
     return keyboard
 
+async def clear_keyboard(update: Update):
+    """إخفاء الأزرار من الرسالة القديمة فور تحديد الخيار"""
+    if update.callback_query:
+        try:
+            await update.callback_query.edit_message_reply_markup(reply_markup=None)
+        except Exception:
+            pass
+
 # -------------------------------------------------------------
 # Error Handler & Helper
 # -------------------------------------------------------------
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     logger.error("Exception while handling an update:", exc_info=context.error)
     if isinstance(update, Update) and update.effective_message:
-        await update.effective_message.reply_text("⚠️ حدث خطأ داخلي في البوت، يرجى كتابة /cancel ثم /start للمعاودة.")
+        await update.effective_message.reply_text("⚠️ حدث خطأ داخلي، يرجى كتابة /cancel ثم /start للمعاودة.")
 
 async def fallback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
@@ -117,10 +125,9 @@ async def priority_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['priority'] = update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         context.user_data['priority'] = update.message.text.strip().upper()
-        msg_target = update.message
 
     keyboard = [
         [InlineKeyboardButton("Departure", callback_data="Departure")],
@@ -128,50 +135,47 @@ async def priority_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         [InlineKeyboardButton("Departure Altanfithi", callback_data="Departure Altanfithi")],
         [InlineKeyboardButton("Arrival Altanfeethi", callback_data="Arrival Altanfeethi")]
     ]
-    await msg_target.reply_text("Select Location:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.effective_chat.send_message("Select Location:", reply_markup=InlineKeyboardMarkup(keyboard))
     return LOCATION
 
 async def location_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         selected_location = update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         selected_location = update.message.text
-        msg_target = update.message
 
     context.user_data['location'] = selected_location
     max_gates = LOCATION_GATES.get(selected_location, 0)
     keyboard = build_gate_keyboard(max_gates)
 
-    await msg_target.reply_text(f"Select Services / System (Gate Number for {selected_location}):", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
+    await update.effective_chat.send_message(f"Select Services / System (Gate Number for {selected_location}):", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
     return SERVICES_SYSTEM
 
 async def services_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['services'] = update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         context.user_data['services'] = update.message.text
-        msg_target = update.message
 
     keyboard = [[InlineKeyboardButton(issue, callback_data=issue)] for issue in ISSUES_AND_SOLUTIONS.keys()]
     keyboard.append([InlineKeyboardButton("Out of Service", callback_data="Out of Service")])
 
-    await msg_target.reply_text("Select or type Incident Description Reported:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.effective_chat.send_message("Select or type Incident Description Reported:", reply_markup=InlineKeyboardMarkup(keyboard))
     return DESC_REPORTED
 
 async def desc_reported_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['desc_reported'] = update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         context.user_data['desc_reported'] = update.message.text
-        msg_target = update.message
 
-    await msg_target.reply_text("Enter Incident Received Time (e.g., 8:35PM):")
+    await update.effective_chat.send_message("Enter Incident Received Time (e.g., 8:35PM):")
     return RECEIVED_TIME
 
 async def received_time_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -187,60 +191,56 @@ async def rc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['rc'] = update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         context.user_data['rc'] = update.message.text
-        msg_target = update.message
 
     keyboard = [
         [InlineKeyboardButton("Solved", callback_data="Solved"), InlineKeyboardButton("Closed", callback_data="Closed")],
         [InlineKeyboardButton("Pending", callback_data="Pending")]
     ]
-    await update.message.reply_text("Select Status:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.effective_chat.send_message("Select Status:", reply_markup=InlineKeyboardMarkup(keyboard))
     return STATUS
 
 async def status_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['status'] = update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         context.user_data['status'] = update.message.text
-        msg_target = update.message
 
     reported_issue = context.user_data.get('desc_reported', 'N/A')
     keyboard = [[InlineKeyboardButton(issue, callback_data=issue)] for issue in ISSUES_AND_SOLUTIONS.keys()]
     keyboard.append([InlineKeyboardButton("Out of Service", callback_data="Out of Service")])
 
-    await msg_target.reply_text(f"Reported Issue previously selected: {reported_issue}\n\nSelect or type Incident Description TCC report:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.effective_chat.send_message(f"Reported Issue previously selected: {reported_issue}\n\nSelect or type Incident Description TCC report:", reply_markup=InlineKeyboardMarkup(keyboard))
     return DESC_TCC
 
 async def desc_tcc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         selected_desc = update.callback_query.data
+        await clear_keyboard(update)
         if selected_desc == "Out of Service":
             keyboard = [[InlineKeyboardButton(f"Out of Service - {issue}", callback_data=f"Out of Service - {issue}")] for issue in ISSUES_AND_SOLUTIONS.keys()]
-            await update.callback_query.message.reply_text("Out of Service selected. Select specific issue:", reply_markup=InlineKeyboardMarkup(keyboard))
+            await update.effective_chat.send_message("Out of Service selected. Select specific issue:", reply_markup=InlineKeyboardMarkup(keyboard))
             return DESC_TCC
         context.user_data['desc_tcc'] = selected_desc
-        msg_target = update.callback_query.message
     else:
         context.user_data['desc_tcc'] = update.message.text
-        msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await msg_target.reply_text("Enter Time closed (e.g., 8:49PM) or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.effective_chat.send_message("Enter Time closed (e.g., 8:49PM) or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
     return TIME_CLOSED
 
 async def time_closed_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         raw_val = "" if update.callback_query.data == "SKIP" else update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         raw_val = update.message.text if update.message.text != '/skip' else ""
-        msg_target = update.message
 
     context.user_data['time_closed'] = format_time_uppercase(raw_val)
     desc_tcc = context.user_data.get('desc_tcc', '')
@@ -261,39 +261,38 @@ async def time_closed_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     keyboard.append([InlineKeyboardButton("Skip >>", callback_data="SKIP")])
 
-    await msg_target.reply_text(f"TCC Report Issue: {desc_tcc}\n\nSelect or type Solution:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.effective_chat.send_message(f"TCC Report Issue: {desc_tcc}\n\nSelect or type Solution:", reply_markup=InlineKeyboardMarkup(keyboard))
     return SOLUTION
 
 async def solution_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['solution'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         context.user_data['solution'] = update.message.text if update.message.text != '/skip' else ""
-        msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await msg_target.reply_text("Enter Associated ticket or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.effective_chat.send_message("Enter Associated ticket or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
     return ASSOCIATED_TICKET
 
 async def associated_ticket_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['associated_ticket'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
-        msg_target = update.callback_query.message
+        await clear_keyboard(update)
     else:
         context.user_data['associated_ticket'] = update.message.text if update.message.text != '/skip' else ""
-        msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await msg_target.reply_text("Enter Remarks or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.effective_chat.send_message("Enter Remarks or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
     return REMARKS
 
 async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     if update.callback_query:
         await update.callback_query.answer()
         context.user_data['remarks'] = "" if update.callback_query.data == "SKIP" else update.callback_query.data
+        await clear_keyboard(update)
     else:
         context.user_data['remarks'] = update.message.text if update.message.text != '/skip' else ""
 
@@ -314,7 +313,6 @@ async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "Comments": data.get('remarks', '')
     })
 
-    # تنسيق بالنجمة الواحدة لتسليم النتيجة بنسق عريض (Bold) للواتساب:
     output = (
         f"*Incident No:* {data.get('incident_no', '')}\n"
         f"*Incident priority:* {data.get('priority', '')}\n"
@@ -331,11 +329,7 @@ async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         f"*Remarks:* {data.get('remarks', '')}"
     )
 
-    if update.callback_query:
-        await update.callback_query.message.reply_text(output)
-    else:
-        await update.message.reply_text(output)
-        
+    await update.effective_chat.send_message(output)
     return ConversationHandler.END
 
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
