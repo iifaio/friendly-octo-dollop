@@ -101,7 +101,7 @@ async def fallback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # -------------------------------------------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data.clear()
-    await update.message.reply_text("Welcome! Let's log a new incident report.\n\nPlease enter the Incident No (or /cancel to stop):")
+    await update.message.reply_text("Welcome! Let's log a new incident report.\n\nPlease enter the **Incident No** (or /cancel to stop):", parse_mode='Markdown')
     return INCIDENT_NO
 
 async def incident_no_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -111,7 +111,7 @@ async def incident_no_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
         InlineKeyboardButton("M (Medium)", callback_data="M"),
         InlineKeyboardButton("L (Low)", callback_data="L")
     ]]
-    await update.message.reply_text("Select Incident priority:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("Select **Incident priority**:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return PRIORITY
 
 async def priority_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -129,7 +129,7 @@ async def priority_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         [InlineKeyboardButton("Departure Altanfithi", callback_data="Departure Altanfithi")],
         [InlineKeyboardButton("Arrival Altanfeethi", callback_data="Arrival Altanfeethi")]
     ]
-    await msg_target.reply_text("Select Location:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await msg_target.reply_text("Select **Location**:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return LOCATION
 
 async def location_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -145,7 +145,7 @@ async def location_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     max_gates = LOCATION_GATES.get(selected_location, 0)
     keyboard = build_gate_keyboard(max_gates)
 
-    await msg_target.reply_text(f"Select Services / System (Gate Number for {selected_location}):", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None)
+    await msg_target.reply_text(f"Select **Services / System** (Gate Number for {selected_location}):", reply_markup=InlineKeyboardMarkup(keyboard) if keyboard else None, parse_mode='Markdown')
     return SERVICES_SYSTEM
 
 async def services_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -160,7 +160,7 @@ async def services_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     keyboard = [[InlineKeyboardButton(issue, callback_data=issue)] for issue in ISSUES_AND_SOLUTIONS.keys()]
     keyboard.append([InlineKeyboardButton("Out of Service", callback_data="Out of Service")])
 
-    await msg_target.reply_text("Select or type Incident Description Reported:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await msg_target.reply_text("Select or type **Incident Description Reported**:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return DESC_REPORTED
 
 async def desc_reported_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -172,7 +172,7 @@ async def desc_reported_chosen(update: Update, context: ContextTypes.DEFAULT_TYP
         context.user_data['desc_reported'] = update.message.text
         msg_target = update.message
 
-    await msg_target.reply_text("Enter Incident Received Time (e.g., 8:35PM):")
+    await msg_target.reply_text("Enter **Incident Received Time** (e.g., 8:35PM):", parse_mode='Markdown')
     return RECEIVED_TIME
 
 async def received_time_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -181,7 +181,7 @@ async def received_time_chosen(update: Update, context: ContextTypes.DEFAULT_TYP
         [InlineKeyboardButton("SW", callback_data="SW"), InlineKeyboardButton("HW", callback_data="HW")],
         [InlineKeyboardButton("N/A", callback_data="N/A")]
     ]
-    await update.message.reply_text("Select or type R/C:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text("Select or type **R/C**:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return RC
 
 async def rc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -197,7 +197,7 @@ async def rc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         [InlineKeyboardButton("Solved", callback_data="Solved"), InlineKeyboardButton("Closed", callback_data="Closed")],
         [InlineKeyboardButton("Pending", callback_data="Pending")]
     ]
-    await msg_target.reply_text("Select Status:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await msg_target.reply_text("Select **Status**:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return STATUS
 
 async def status_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -213,7 +213,7 @@ async def status_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     keyboard = [[InlineKeyboardButton(issue, callback_data=issue)] for issue in ISSUES_AND_SOLUTIONS.keys()]
     keyboard.append([InlineKeyboardButton("Out of Service", callback_data="Out of Service")])
 
-    await msg_target.reply_text(f"Reported Issue previously selected: {reported_issue}\n\nSelect or type Incident Description TCC report:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await msg_target.reply_text(f"Reported Issue previously selected: **{reported_issue}**\n\nSelect or type **Incident Description TCC report**:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return DESC_TCC
 
 async def desc_tcc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -231,7 +231,7 @@ async def desc_tcc_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await msg_target.reply_text("Enter Time closed (e.g., 8:49PM) or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await msg_target.reply_text("Enter **Time closed** (e.g., 8:49PM) or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return TIME_CLOSED
 
 async def time_closed_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -262,7 +262,7 @@ async def time_closed_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     keyboard.append([InlineKeyboardButton("Skip >>", callback_data="SKIP")])
 
-    await msg_target.reply_text(f"TCC Report Issue: {desc_tcc}\n\nSelect or type Solution:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await msg_target.reply_text(f"TCC Report Issue: **{desc_tcc}**\n\nSelect or type **Solution**:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return SOLUTION
 
 async def solution_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -275,7 +275,7 @@ async def solution_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await msg_target.reply_text("Enter Associated ticket or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await msg_target.reply_text("Enter **Associated ticket** or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return ASSOCIATED_TICKET
 
 async def associated_ticket_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -288,7 +288,7 @@ async def associated_ticket_chosen(update: Update, context: ContextTypes.DEFAULT
         msg_target = update.message
 
     keyboard = [[InlineKeyboardButton("Skip >>", callback_data="SKIP")]]
-    await msg_target.reply_text("Enter Remarks or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard))
+    await msg_target.reply_text("Enter **Remarks** or press Skip:", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='Markdown')
     return REMARKS
 
 async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -316,25 +316,25 @@ async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     })
 
     output = (
-        f"Incident No: {data.get('incident_no', '')}\n"
-        f"Incident priority: {data.get('priority', '')}\n"
-        f"Services / System: {data.get('services', '')}\n"
-        f"Location: {data.get('location', '')}\n"
-        f"Incident Description Reported: {data.get('desc_reported', '')}\n"
-        f"Incident Received Time: {data.get('received_time', '')}\n\n"
-        f"R/C: {data.get('rc', '')}\n"
-        f"Status: {data.get('status', '')}\n"
-        f"Incident Description TCC report: {data.get('desc_tcc', '')}\n"
-        f"Time closed: {data.get('time_closed', '')}\n"
-        f"Solution: {data.get('solution', '')}\n"
-        f"Associated ticket: {data.get('associated_ticket', '')}\n"
-        f"Remarks: {data.get('remarks', '')}"
+        f"**Incident No:** {data.get('incident_no', '')}\n"
+        f"**Incident priority:** {data.get('priority', '')}\n"
+        f"**Services / System:** {data.get('services', '')}\n"
+        f"**Location:** {data.get('location', '')}\n"
+        f"**Incident Description Reported:** {data.get('desc_reported', '')}\n"
+        f"**Incident Received Time:** {data.get('received_time', '')}\n\n"
+        f"**R/C:** {data.get('rc', '')}\n"
+        f"**Status:** {data.get('status', '')}\n"
+        f"**Incident Description TCC report:** {data.get('desc_tcc', '')}\n"
+        f"**Time closed:** {data.get('time_closed', '')}\n"
+        f"**Solution:** {data.get('solution', '')}\n"
+        f"**Associated ticket:** {data.get('associated_ticket', '')}\n"
+        f"**Remarks:** {data.get('remarks', '')}"
     )
 
     if update.callback_query:
-        await update.callback_query.message.reply_text(output)
+        await update.callback_query.message.reply_text(output, parse_mode='Markdown')
     else:
-        await update.message.reply_text(output)
+        await update.message.reply_text(output, parse_mode='Markdown')
         
     return ConversationHandler.END
 
@@ -367,7 +367,7 @@ def main():
     )
 
     application.add_handler(conv_handler)
-    application.add_handler(CallbackQueryHandler(fallback_callback)) # يمسك الأزرار غير المعروفة ويرسل تنبيه للمستخدم
+    application.add_handler(CallbackQueryHandler(fallback_callback))
     application.add_error_handler(error_handler)
 
     print("Bot is running...")
