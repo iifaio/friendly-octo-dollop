@@ -369,7 +369,6 @@ async def remarks_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     data = context.user_data
-    # تنسيق التاريخ بصيغة DD/MM/YYYY
     today_date = datetime.now().strftime("%d/%m/%Y")
 
     incident_record = {
@@ -387,20 +386,21 @@ async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     }
     daily_incidents.append(incident_record)
 
+    # المخرج النهائي بخط عريض (Bold) متوافق مع WhatsApp و Telegram
     output = (
-        f"*Incident No*: {data.get('incident_no', '')}\n"
-        f"*Incident priority*: {data.get('priority', '')}\n"
-        f"*Services / System*: {data.get('services', '')}\n"
-        f"*Location*: {data.get('location', '')}\n"
-        f"*Incident Description Reported*: {data.get('desc_reported', '')}\n"
-        f"*Incident Received Time*: {data.get('received_time', '')}\n\n"
-        f"*R/C*: {data.get('rc', '')}\n"
-        f"*Status*: {data.get('status', '')}\n"
-        f"*Incident Description TCC report*: {data.get('desc_tcc', '')}\n"
-        f"*Time closed*: {data.get('time_closed', '')}\n"
-        f"*Solution*: {data.get('solution', '')}\n"
-        f"*Associated ticket*: {data.get('associated_ticket', '')}\n"
-        f"*Remarks*: {data.get('remarks', '')}"
+        f"*Incident No: {data.get('incident_no', '')}*\n"
+        f"*Incident priority: {data.get('priority', '')}*\n"
+        f"*Services / System: {data.get('services', '')}*\n"
+        f"*Location: {data.get('location', '')}*\n"
+        f"*Incident Description Reported: {data.get('desc_reported', '')}*\n"
+        f"*Incident Received Time: {data.get('received_time', '')}*\n\n"
+        f"*R/C: {data.get('rc', '')}*\n"
+        f"*Status: {data.get('status', '')}*\n"
+        f"*Incident Description TCC report: {data.get('desc_tcc', '')}*\n"
+        f"*Time closed: {data.get('time_closed', '')}*\n"
+        f"*Solution: {data.get('solution', '')}*\n"
+        f"*Associated ticket: {data.get('associated_ticket', '')}*\n"
+        f"*Remarks: {data.get('remarks', '')}*"
     )
 
     if update.callback_query:
@@ -435,7 +435,6 @@ async def export_report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lines = []
     for item in daily_incidents:
         row_fields = [str(item.get(h, "")) for h in headers]
-        # استخدام الفاصل Tab (\t) المباشر لتوزيع البيانات في إكسل
         lines.append("\t".join(row_fields))
 
     tab_output = "\n".join(lines)
