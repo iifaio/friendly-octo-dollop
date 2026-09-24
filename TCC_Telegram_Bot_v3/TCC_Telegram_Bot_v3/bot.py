@@ -386,7 +386,7 @@ async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     }
     daily_incidents.append(incident_record)
 
-    # المخرج النهائي بالتنسيق الجديد (*العنوان* فقط بدون النقطتين وبدون النص المُدخل)
+    # إرسال النص مع النجمات بدون parse_mode لضمان احتفاظه بالرموز عند النسخ واللصق للواتساب
     output = (
         f"*Incident No*: {data.get('incident_no', '')}\n"
         f"*Incident priority*: {data.get('priority', '')}\n"
@@ -404,9 +404,9 @@ async def send_final_report(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     )
 
     if update.callback_query:
-        await update.callback_query.message.reply_text(output, parse_mode='Markdown')
+        await update.callback_query.message.reply_text(output)
     else:
-        await update.message.reply_text(output, parse_mode='Markdown')
+        await update.message.reply_text(output)
         
     return ConversationHandler.END
 
